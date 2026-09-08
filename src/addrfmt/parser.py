@@ -1,0 +1,116 @@
+"""Parse free-text US postal addresses into structured, normalised fields.
+
+Input is treated as: zero or more non-blank lines of recipient/street
+address, followed by a final non-blank line containing "city, state zip".
+Blank lines are ignored for parsing purposes but still count towards line
+numbers, so error positions match what the user sees in an editor.
+"""
+
+import re
+from dataclasses import dataclass
+from typing import Tuple
+
+from .errors import AddressFormatError
+
+# USPS two-letter codes: 50 states, DC, and the major territories.
+US_STATE_CODES = frozenset(
+    """
+    AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS
+    MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV
+    WI WY DC PR VI GU AS MP
+    """.split()
+)
+
+_ZIP_RE = re.compile(r"(?P<zip>\d{5}(?:-\d{4})?)\s*$")
+_TRAILING_WORD_RE = re.compile(r"([A-Za-z][A-Za-z.]*)\s*,?\s*$")
+
+
+@dataclass(frozen=True)
+class ParsedAddress:
+    lines: Tuple[str, ...]
+    city: str
+    state: str
+    zip_code: str
+
+    def format(self) -> str:
+        return "\n".join((*self.lines, f"{self.city}, {self.state} {self.zip_code}"))
+
+
+def _titlecase_word(word: str) -> str:
+    # Title-case each hyphen-separated part so "winston-salem" becomes
+    # "Winston-Salem" instead of "Winston-salem".
+    parts = word.split("-")
+    return "-".join(part[:1].upper() + part[1:].lower() if part else part for part in parts)
+
+
+def _normalise_text(text: str) -> str:
+    collapsed = re.sub(r"\s+", " ", text).strip()
+    return " ".join(_titlecase_word(word) for word in collapsed.split(" ") if word)
+
+
+def parse_address(text: str) -> ParsedAddress:
+    raw_lines = text.splitlines()
+    numbered = [(i + 1, line) for i, line in enumerate(raw_lines) if line.strip()]
+
+    if not numbered:
+        raise AddressFormatError("input is empty", 1, 1, "")
+
+    if len(numbered) < 2:
+        lineno, line = numbered[0]
+        raise AddressFormatError(
+            "address needs at least one line before the city/state/ZIP line",
+            lineno,
+            1,
+            line,
+        )
+
+    *street_entries, (last_lineno, last_line) = numbered
+
+    zip_match = _ZIP_RE.search(last_line)
+    if not zip_match:
+        raise AddressFormatError(
+            "expected a ZIP code (5 digits, optionally followed by -XXXX) "
+            "at the end of this line",
+            last_lineno,
+            len(last_line) + 1,
+            last_line,
+        )
+    zip_code = zip_match.group("zip")
+    before_zip = last_line[: zip_match.start()]
+
+    state_match = _TRAILING_WORD_RE.search(before_zip)
+    if not state_match:
+        raise AddressFormatError(
+            "expected a 2-letter state abbreviation before the ZIP code",
+            last_lineno,
+            len(before_zip) + 1,
+            last_line,
+        )
+    state_token = state_match.group(1)
+    if len(state_token) != 2 or state_token.upper() not in US_STATE_CODES:
+        raise AddressFormatError(
+            f"expected a 2-letter state abbreviation (e.g. 'IL'), found {state_token!r}",
+            last_lineno,
+            state_match.start(1) + 1,
+            last_line,
+        )
+    state_code = state_token.upper()
+
+    before_state = before_zip[: state_match.start()]
+    city = before_state.strip(" ,\t")
+    if not city:
+        raise AddressFormatError(
+            "missing city name before the state",
+            last_lineno,
+            1,
+            last_line,
+        )
+
+    lines = tuple(_normalise_text(line) for _, line in street_entries)
+    city = _normalise_text(city)
+
+    return ParsedAddress(lines=lines, city=city, state=state_code, zip_code=zip_code)
+
+
+def format_address(text: str) -> str:
+    return parse_address(text).format()
