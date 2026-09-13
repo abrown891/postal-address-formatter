@@ -53,6 +53,34 @@ class ParseSuccessTests(unittest.TestCase):
         parsed = parse_address("123 NW Elm St\nPortland, OR 97201")
         self.assertEqual(parsed.lines, ("123 Nw Elm St",))
 
+    def test_single_street_line_has_no_recipient(self):
+        parsed = parse_address("100 Main St\nChicago, IL 60601")
+        self.assertEqual(parsed.recipient_lines, ())
+        self.assertEqual(parsed.street_lines, ("100 Main St",))
+
+    def test_recipient_line_split_from_street_line(self):
+        parsed = parse_address("Jane Doe\n742 Evergreen Terrace\nSpringfield, IL 62704")
+        self.assertEqual(parsed.recipient_lines, ("Jane Doe",))
+        self.assertEqual(parsed.street_lines, ("742 Evergreen Terrace",))
+
+    def test_lines_after_street_are_kept_with_street(self):
+        text = "Jane Doe\n742 Evergreen Terrace\nApt 4\nSpringfield, IL 62704"
+        parsed = parse_address(text)
+        self.assertEqual(parsed.recipient_lines, ("Jane Doe",))
+        self.assertEqual(parsed.street_lines, ("742 Evergreen Terrace", "Apt 4"))
+
+    def test_po_box_counts_as_street_start(self):
+        text = "Jane Doe\nPO Box 42\nSpringfield, IL 62704"
+        parsed = parse_address(text)
+        self.assertEqual(parsed.recipient_lines, ("Jane Doe",))
+        self.assertEqual(parsed.street_lines, ("Po Box 42",))
+
+    def test_no_recognisable_street_line_falls_back_to_last_line(self):
+        text = "Jane Doe\nRural Route Two\nSpringfield, IL 62704"
+        parsed = parse_address(text)
+        self.assertEqual(parsed.recipient_lines, ("Jane Doe",))
+        self.assertEqual(parsed.street_lines, ("Rural Route Two",))
+
 
 class ParseErrorTests(unittest.TestCase):
     def test_empty_input(self):

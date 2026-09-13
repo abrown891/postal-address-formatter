@@ -38,9 +38,24 @@ Springfield, IL 62704-1234
 ```
 
 The last non-blank line is always treated as `city, state zip`; the comma is
-optional and casing doesn't matter. Every line above it is treated as a
-recipient/street line and passed through the same whitespace-collapsing,
-title-casing normalisation.
+optional and casing doesn't matter. Every line above it is passed through
+the same whitespace-collapsing, title-casing normalisation and is available
+as `parsed.lines`.
+
+`ParsedAddress` also splits those lines into `recipient_lines` and
+`street_lines`, by looking for the first line that starts with a house
+number or a PO box:
+
+```python
+from addrfmt import parse_address
+
+parsed = parse_address("Jane Doe\n742 Evergreen Terrace\nSpringfield IL 62704")
+parsed.recipient_lines  # ("Jane Doe",)
+parsed.street_lines     # ("742 Evergreen Terrace",)
+```
+
+If no line looks like a street start, the last line before city/state/zip
+is assumed to be the street line.
 
 ## Errors with real coordinates
 
@@ -75,8 +90,9 @@ message.
 ## Known limitations (v1)
 
 - US addresses only; no ZIP-to-state cross-check.
-- Recipient and street lines aren't distinguished from each other, they're
-  just normalised the same way.
+- Recipient/street line splitting is a heuristic (first line starting with
+  a house number or PO box); unusual formats like rural routes can guess
+  wrong.
 - Title-casing is naive: it will turn "PO Box" into "Po Box" and "NW" into
   "Nw". Directionals and common abbreviations aren't special-cased yet.
 

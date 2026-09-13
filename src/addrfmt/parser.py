@@ -4,6 +4,11 @@ Input is treated as: zero or more non-blank lines of recipient/street
 address, followed by a final non-blank line containing "city, state zip".
 Blank lines are ignored for parsing purposes but still count towards line
 numbers, so error positions match what the user sees in an editor.
+
+The recipient/street lines are further split into ``recipient_lines`` and
+``street_lines`` on ``ParsedAddress`` by looking for the first line that
+starts with a house number or a PO box; everything above that is treated
+as the recipient block.
 """
 
 import re
@@ -24,10 +29,27 @@ US_STATE_CODES = frozenset(
 _ZIP_RE = re.compile(r"(?P<zip>\d{5}(?:-\d{4})?)\s*$")
 _TRAILING_WORD_RE = re.compile(r"([A-Za-z][A-Za-z.]*)\s*,?\s*$")
 
+# A line "looks like" the start of the street portion of the address if it
+# opens with a house number or a PO box, since that's the one part of the
+# address block recipient lines never look like.
+_STREET_START_RE = re.compile(r"^\s*(\d|p\.?\s*o\.?\s*box\b)", re.IGNORECASE)
+
+
+def _split_recipient_and_street(entries: Tuple[str, ...]) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
+    for i, line in enumerate(entries):
+        if _STREET_START_RE.match(line):
+            return entries[:i], entries[i:]
+    # No line looked like a street start (e.g. a rural route or a format we
+    # don't recognise). Fall back to treating the last line as the street,
+    # since that's the line directly above city/state/zip.
+    return entries[:-1], entries[-1:]
+
 
 @dataclass(frozen=True)
 class ParsedAddress:
     lines: Tuple[str, ...]
+    recipient_lines: Tuple[str, ...]
+    street_lines: Tuple[str, ...]
     city: str
     state: str
     zip_code: str
@@ -109,7 +131,16 @@ def parse_address(text: str) -> ParsedAddress:
     lines = tuple(_normalise_text(line) for _, line in street_entries)
     city = _normalise_text(city)
 
-    return ParsedAddress(lines=lines, city=city, state=state_code, zip_code=zip_code)
+    recipient_lines, street_lines = _split_recipient_and_street(lines)
+
+    return ParsedAddress(
+        lines=lines,
+        recipient_lines=recipient_lines,
+        street_lines=street_lines,
+        city=city,
+        state=state_code,
+        zip_code=zip_code,
+    )
 
 
 def format_address(text: str) -> str:
