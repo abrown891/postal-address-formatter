@@ -7,6 +7,9 @@ requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "abrown891" }]
 
+[project.scripts]
+addrfmt = "addrfmt.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

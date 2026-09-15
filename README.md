@@ -87,6 +87,23 @@ line 3, column 14: expected a 2-letter state abbreviation (e.g. 'IL'), found 'Il
 validator, say) can highlight the exact span instead of parsing the string
 message.
 
+## Command line
+
+Installing the package (`pip install .` from a checkout, or `pip install -e .`
+for development) also gives you an `addrfmt` command that reads one address
+from stdin and prints the normalised form:
+
+```
+$ printf 'Jane Doe\n742 evergreen terrace\nspringfield il 62704-1234\n' | addrfmt
+Jane Doe
+742 Evergreen Terrace
+Springfield, IL 62704-1234
+```
+
+On a parse failure it prints the same "line N, column N" error to stderr and
+exits with status 1, so it's safe to use in a pipeline. `python -m addrfmt`
+works the same way without installing the console script.
+
 ## Known limitations (v1)
 
 - US addresses only; no ZIP-to-state cross-check.
