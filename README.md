@@ -110,8 +110,9 @@ works the same way without installing the console script.
 - Recipient/street line splitting is a heuristic (first line starting with
   a house number or PO box); unusual formats like rural routes can guess
   wrong.
-- Title-casing is naive: it will turn "PO Box" into "Po Box" and "NW" into
-  "Nw". Directionals and common abbreviations aren't special-cased yet.
+- Title-casing special-cases compass directionals (N, S, E, W, NE, NW, SE,
+  SW) and "PO" so they stay upper-case, but other street abbreviations
+  ("St", "Ave", "Blvd") are still just title-cased like any other word.
 
 ## License
 

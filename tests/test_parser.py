@@ -48,10 +48,17 @@ class ParseSuccessTests(unittest.TestCase):
         self.assertEqual(parsed.lines, ("742 Main St",))
         self.assertEqual(parsed.city, "Chicago")
 
-    def test_directionals_are_naively_titlecased(self):
-        # Documents the known limitation: no special-casing for "NW" yet.
-        parsed = parse_address("123 NW Elm St\nPortland, OR 97201")
-        self.assertEqual(parsed.lines, ("123 Nw Elm St",))
+    def test_directionals_are_uppercased(self):
+        parsed = parse_address("123 nw Elm St\nPortland, OR 97201")
+        self.assertEqual(parsed.lines, ("123 NW Elm St",))
+
+    def test_all_compass_directionals_are_uppercased(self):
+        parsed = parse_address("1 Main St\nApt 2 se\nPortland, OR 97201")
+        self.assertEqual(parsed.lines, ("1 Main St", "Apt 2 SE"))
+
+    def test_directional_with_trailing_comma_is_uppercased(self):
+        parsed = parse_address("1 Main St Nw, Suite 2\nPortland, OR 97201")
+        self.assertEqual(parsed.lines, ("1 Main St NW, Suite 2",))
 
     def test_single_street_line_has_no_recipient(self):
         parsed = parse_address("100 Main St\nChicago, IL 60601")
@@ -73,7 +80,7 @@ class ParseSuccessTests(unittest.TestCase):
         text = "Jane Doe\nPO Box 42\nSpringfield, IL 62704"
         parsed = parse_address(text)
         self.assertEqual(parsed.recipient_lines, ("Jane Doe",))
-        self.assertEqual(parsed.street_lines, ("Po Box 42",))
+        self.assertEqual(parsed.street_lines, ("PO Box 42",))
 
     def test_no_recognisable_street_line_falls_back_to_last_line(self):
         text = "Jane Doe\nRural Route Two\nSpringfield, IL 62704"

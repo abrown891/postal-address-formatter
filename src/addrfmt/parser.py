@@ -34,6 +34,10 @@ _TRAILING_WORD_RE = re.compile(r"([A-Za-z][A-Za-z.]*)\s*,?\s*$")
 # address block recipient lines never look like.
 _STREET_START_RE = re.compile(r"^\s*(\d|p\.?\s*o\.?\s*box\b)", re.IGNORECASE)
 
+# Words that should stay all-caps instead of getting title-cased: postal
+# directionals (as in "123 NW Elm St") and the PO Box abbreviation.
+_UPPERCASE_WORDS = frozenset({"N", "S", "E", "W", "NE", "NW", "SE", "SW", "PO"})
+
 
 def _split_recipient_and_street(entries: Tuple[str, ...]) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
     for i, line in enumerate(entries):
@@ -58,11 +62,23 @@ class ParsedAddress:
         return "\n".join((*self.lines, f"{self.city}, {self.state} {self.zip_code}"))
 
 
+def _titlecase_part(part: str) -> str:
+    if not part:
+        return part
+    # Strip trailing punctuation before checking against the uppercase
+    # word list, so "NW," and "PO." are recognised the same as "NW".
+    core = part.rstrip(".,;:")
+    trailing = part[len(core):]
+    if core.upper() in _UPPERCASE_WORDS:
+        return core.upper() + trailing
+    return part[:1].upper() + part[1:].lower()
+
+
 def _titlecase_word(word: str) -> str:
     # Title-case each hyphen-separated part so "winston-salem" becomes
     # "Winston-Salem" instead of "Winston-salem".
     parts = word.split("-")
-    return "-".join(part[:1].upper() + part[1:].lower() if part else part for part in parts)
+    return "-".join(_titlecase_part(part) for part in parts)
 
 
 def _normalise_text(text: str) -> str:
