@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Tuple
 
 from .errors import AddressFormatError
+from .zipstates import states_for_zip
 
 # USPS two-letter codes: 50 states, DC, and the major territories.
 US_STATE_CODES = frozenset(
@@ -133,6 +134,16 @@ def parse_address(text: str) -> ParsedAddress:
             last_line,
         )
     state_code = state_token.upper()
+
+    owners = states_for_zip(zip_code)
+    if owners is not None and state_code not in owners:
+        expected = "/".join(sorted(owners))
+        raise AddressFormatError(
+            f"ZIP code {zip_code[:5]} belongs to {expected}, not {state_code}",
+            last_lineno,
+            zip_match.start("zip") + 1,
+            last_line,
+        )
 
     before_state = before_zip[: state_match.start()]
     city = before_state.strip(" ,\t")

@@ -106,7 +106,11 @@ works the same way without installing the console script.
 
 ## Known limitations (v1)
 
-- US addresses only; no ZIP-to-state cross-check.
+- US addresses only.
+- The ZIP is checked against the state by its first three digits, and a
+  mismatch is reported at the ZIP's column. This catches a wrong state, not
+  a ZIP that doesn't exist, and prefixes no state owns (military APO/FPO)
+  are not checked.
 - Recipient/street line splitting is a heuristic (first line starting with
   a house number or PO box); unusual formats like rural routes can guess
   wrong.

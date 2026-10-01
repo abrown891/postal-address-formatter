@@ -149,6 +149,21 @@ class ParseErrorTests(unittest.TestCase):
         self.assertEqual(err.column, 1)
         self.assertIn("missing city", err.message)
 
+    def test_zip_from_another_state_is_rejected_at_the_zip(self):
+        with self.assertRaises(AddressFormatError) as cm:
+            parse_address("100 Main St\nChicago, IL 90210")
+        err = cm.exception
+        self.assertEqual((err.line, err.column), (2, 13))
+        self.assertIn("belongs to CA, not IL", err.message)
+
+    def test_zip_shared_by_territories_accepts_either(self):
+        self.assertEqual(parse_address("1 Main St\nHagatna, GU 96910").state, "GU")
+        self.assertEqual(parse_address("1 Main St\nSaipan, MP 96950").state, "MP")
+
+    def test_zip_prefix_with_no_owner_is_not_checked(self):
+        parsed = parse_address("Unit 1\nPSC 1\nAPO, NY 09001")
+        self.assertEqual(parsed.state, "NY")
+
     def test_error_str_has_caret_pointing_at_column(self):
         with self.assertRaises(AddressFormatError) as cm:
             parse_address("123 Main St\nChicago, IL")
